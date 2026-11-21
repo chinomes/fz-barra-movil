@@ -1,0 +1,13 @@
+FZ BARRA MOVIL - PROYECTO CORREGIDO
+
+1. Extrae toda esta carpeta en tu computadora.
+2. Abre la carpeta FZ-Barra-Movil-corregido en Visual Studio Code.
+3. Comprueba que index.html, styles.css y app.js estén juntos en la carpeta principal.
+4. La carpeta assets debe estar al mismo nivel y contener las fotos y imagane1pag.webp.
+5. Abre index.html con Live Server.
+
+IMPORTANTE:
+- No abras el HTML desde dentro del ZIP.
+- No cambies los nombres de archivos ni de las imágenes.
+- El formulario de opiniones usa almacenamiento local mientras no configures Supabase.
+- Para compartir comentarios entre todos los visitantes debes configurar Supabase con supabase-setup.sql y completar las claves en app.js.
