@@ -1,8 +1,8 @@
 /* FZ Barra Móvil | Interacciones, opiniones y solicitudes de presupuesto.
    Configurá SUPABASE_URL y SUPABASE_ANON_KEY para habilitar el almacenamiento compartido.
 */
-const SUPABASE_URL = 'PEGAR_URL_DE_TU_PROYECTO';
-const SUPABASE_ANON_KEY = 'PEGAR_CLAVE_ANON_PUBLICA';
+const SUPABASE_URL = 'https://bqqktwikyqychyazzlbs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_MRQLfMPFCiFK7dZNPaW4IA_kZh4nCwZ';
 const hasSupabaseConfig = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.startsWith('ey');
 const db = hasSupabaseConfig && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const $ = (s, root=document) => root.querySelector(s);
