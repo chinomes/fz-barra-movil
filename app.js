@@ -191,6 +191,10 @@ async function refreshAdmin(){
   const {data}=await db.auth.getUser();adminUser=data.user;
   if(!adminUser){$('#adminLogin').classList.remove('hidden');$('#adminArea').classList.add('hidden');return;}
   $('#adminLogin').classList.add('hidden');$('#adminArea').classList.remove('hidden');
+  const adminArea=$('#adminArea');
+  const budgetHeading=adminArea.querySelector('.admin-heading');
+  const budgetRequests=$('#adminBudgetRequests');
+  adminArea.querySelector('.admin-note').after(budgetHeading,budgetRequests);
   try{const rows=await fetchReviews(true);$('#adminReviews').innerHTML=rows.length?rows.map(r=>`<div class="admin-row"><span>${safeText(r.name)} · ${Number(r.rating)}★ · ${r.visible?'Visible':'Oculta'}</span><button data-review-id="${safeText(r.id)}" data-visible="${!r.visible}">${r.visible?'Ocultar':'Publicar'}</button></div>`).join(''):'<p class="admin-note">Todavía no hay opiniones.</p>';
     $$('#adminReviews button').forEach(btn=>btn.addEventListener('click',()=>setReviewVisibility(btn.dataset.reviewId,btn.dataset.visible==='true')));
   }catch(err){$('#adminReviews').textContent='No se pudieron cargar las opiniones. Verificá las políticas de acceso.';console.error(err);}
@@ -199,10 +203,17 @@ async function refreshAdmin(){
 async function setReviewVisibility(id,visible){if(!db)return;const {error}=await db.from('reviews').update({visible}).eq('id',id);if(error){$('#adminStatus').textContent='No se pudo actualizar el comentario.';return;}refreshAdmin();}
 async function loadBudgetRequests(){
   const list=$('#adminBudgetRequests');
+  list.innerHTML='<p class="admin-note">Cargando solicitudes de presupuesto...</p>';
   try{
+    const {data:adminRecord,error:adminCheckError}=await db.from('admin_users').select('user_id').eq('user_id',adminUser.id).maybeSingle();
+    if(adminCheckError)throw adminCheckError;
+    if(!adminRecord){
+      list.innerHTML='<p class="form-status error">Tu cuenta puede ver comentarios públicos, pero no está habilitada para ver presupuestos. Agregá el UUID de esta cuenta a public.admin_users en Supabase.</p>';
+      return;
+    }
     const {data,error}=await db.from('budget_requests').select('*').order('created_at',{ascending:false});
     if(error)throw error;
-    list.innerHTML=data.length?data.map(r=>`<article class="budget-request-card"><b>${safeText(r.name)} · ${safeText(r.event)}</b><p>WhatsApp: ${safeText(r.whatsapp||'No indicado')} · Email: ${safeText(r.email||'No indicado')}</p><p>Fecha: ${safeText(r.date||'A definir')} · Invitados: ${safeText(r.guests||'A definir')}</p><p>${safeText(r.details||'Sin detalles adicionales')}</p></article>`).join(''):'<p class="admin-note">Todavía no hay solicitudes.</p>';
-  }catch(err){list.innerHTML='<p class="form-status error">No se pudieron cargar las solicitudes. Verificá la tabla y las políticas de acceso.</p>';console.error(err);}
+    list.innerHTML=data.length?data.map(r=>`<article class="budget-request-card"><b>${safeText(r.name)} · ${safeText(r.event)}</b><p>WhatsApp: ${safeText(r.whatsapp||'No indicado')} · Email: ${safeText(r.email||'No indicado')}</p><p>Fecha: ${safeText(r.date||'A definir')} · Invitados: ${safeText(r.guests||'A definir')}</p><p>${safeText(r.details||'Sin detalles adicionales')}</p></article>`).join(''):'<p class="admin-note">Todavía no hay solicitudes guardadas en este proyecto Supabase.</p>';
+  }catch(err){list.innerHTML='<p class="form-status error">No se pudieron cargar los presupuestos. Verificá la tabla public.budget_requests y las políticas RLS; consultá los registros de Supabase para el error técnico.</p>';console.error(err);}
 }
 async function logoutAdmin(){if(db)await db.auth.signOut();adminUser=null;$('#adminArea').classList.add('hidden');$('#adminLogin').classList.remove('hidden');$('#adminStatus').textContent='Sesión cerrada.';}
