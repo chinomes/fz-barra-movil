@@ -1,13 +1,15 @@
 FZ BARRA MOVIL - PROYECTO CORREGIDO
 
 1. Extrae toda esta carpeta en tu computadora.
-2. Abre la carpeta FZ-Barra-Movil-corregido en Visual Studio Code.
-3. Comprueba que index.html, styles.css y app.js estén juntos en la carpeta principal.
-4. La carpeta assets debe estar al mismo nivel y contener las fotos y imagane1pag.webp.
-5. Abre index.html con Live Server.
+2. Abre la carpeta del proyecto en Visual Studio Code.
+3. Comprueba que index.html, styles.css, app.js, foto-1.jpg a foto-5.jpg e imagane1pag.webp estén juntos en la carpeta principal.
+4. Abre index.html con Live Server.
 
 IMPORTANTE:
 - No abras el HTML desde dentro del ZIP.
 - No cambies los nombres de archivos ni de las imágenes.
-- El formulario de opiniones usa almacenamiento local mientras no configures Supabase.
-- Para compartir comentarios entre todos los visitantes debes configurar Supabase con supabase-setup.sql y completar las claves en app.js.
+- Las opiniones y solicitudes de presupuesto se guardan en Supabase; no se muestran como guardadas si la conexión no está configurada.
+- Para activarlas, ejecutá supabase-setup.sql en Supabase > SQL Editor y copiá la URL del proyecto y la clave anon/publica en app.js.
+- Las solicitudes de presupuesto incluyen datos personales y solo están disponibles para el equipo administrador que hayas agregado a public.admin_users.
+- Agregá el UUID del administrador en public.admin_users usando la consulta de ejemplo incluida en supabase-setup.sql.
+- Sin las credenciales de un proyecto Supabase, el sitio se puede previsualizar, pero no puede guardar solicitudes ni compartir comentarios en producción.

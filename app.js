@@ -1,6 +1,5 @@
-/* FZ Barra Móvil | Interacciones y opiniones.
-   Para guardar opiniones entre dispositivos, completar SUPABASE_URL y SUPABASE_ANON_KEY.
-   Sin configuración, el sitio funciona en modo demostración con localStorage del navegador.
+/* FZ Barra Móvil | Interacciones, opiniones y solicitudes de presupuesto.
+   Configurá SUPABASE_URL y SUPABASE_ANON_KEY para habilitar el almacenamiento compartido.
 */
 const SUPABASE_URL = 'PEGAR_URL_DE_TU_PROYECTO';
 const SUPABASE_ANON_KEY = 'PEGAR_CLAVE_ANON_PUBLICA';
@@ -39,27 +38,51 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&backdrop.classList.
 
 function bindPanel(name){
   if(name==='presupuesto'){
-    $('#onlineBudget').addEventListener('click',()=>$('#budgetForm').classList.toggle('hidden'));
-    $('#budgetForm').addEventListener('submit',e=>{
-      e.preventDefault();const f=new FormData(e.currentTarget);const n=String(f.get('name')||'').trim();const ev=String(f.get('event')||'').trim();
-      if(n.length<2||ev.length<3){alert('Completá tu nombre y el tipo de evento.');return;}
-      const msg=`Hola FZ! Quiero solicitar un presupuesto.\nNombre: ${n}\nEvento: ${ev}\nFecha: ${f.get('date')||'A definir'}\nInvitados: ${f.get('guests')||'A definir'}\nDetalles: ${f.get('details')||'Sin detalles adicionales'}`;
-      window.open(`https://wa.me/message/AFC0QXZST4M6C1?text=${encodeURIComponent(msg)}`,'_blank','noopener');
+    $('#budgetForm').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const form=e.currentTarget, values=new FormData(form);
+      const request={
+        name:String(values.get('name')||'').trim(),
+        event:String(values.get('event')||'').trim(),
+        date:String(values.get('date')||'')||null,
+        guests:Number(values.get('guests'))||null,
+        whatsapp:String(values.get('whatsapp')||'').trim(),
+        email:String(values.get('email')||'').trim(),
+        details:String(values.get('details')||'').trim()
+      };
+      const emailOk=!request.email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(request.email);
+      const phoneDigits=request.whatsapp.replace(/\D/g,'');
+      if(request.name.length<2||request.event.length<3){setBudgetStatus('Completá tu nombre y el tipo de evento.','error');return;}
+      if(!request.whatsapp&&!request.email){setBudgetStatus('Dejanos un WhatsApp o un correo para poder contactarte.','error');return;}
+      if(request.whatsapp&&phoneDigits.length<8){setBudgetStatus('Revisá el número de WhatsApp: debe incluir al menos 8 dígitos.','error');return;}
+      if(request.guests!==null&&(!Number.isInteger(request.guests)||request.guests<1||request.guests>5000)){setBudgetStatus('La cantidad de invitados debe ser un número entero entre 1 y 5000.','error');return;}
+      if(!emailOk){setBudgetStatus('Ingresá un correo electrónico válido.','error');return;}
+      if(!db){setBudgetStatus('La recepción online todavía no está configurada. El equipo debe conectar Supabase para guardar tu solicitud.','error');return;}
+      const submit=form.querySelector('button[type="submit"]');
+      submit.disabled=true;
+      setBudgetStatus('Enviando tu solicitud...','');
+      try{
+        const {error}=await db.from('budget_requests').insert(request);
+        if(error)throw error;
+        showBudgetConfirmation(request);
+      }catch(err){
+        setBudgetStatus('No se pudo guardar la solicitud. Intentá nuevamente o escribinos por WhatsApp.','error');
+        submit.disabled=false;
+        console.error(err);
+      }
     });
   }
   if(name==='opiniones') bindReviews();
 }
 
-function readLocal(){try{return JSON.parse(localStorage.getItem('fz_reviews')||'[]')}catch{return []}}
-function writeLocal(rows){localStorage.setItem('fz_reviews',JSON.stringify(rows));}
 async function fetchReviews(admin=false){
-  if(!db){const rows=readLocal();return admin?rows:rows.filter(r=>r.visible!==false);}
+  if(!db)throw new Error('Supabase no está configurado.');
   let query=db.from('reviews').select('*').order('created_at',{ascending:false});
   if(!admin)query=query.eq('visible',true);
   const {data,error}=await query;if(error)throw error;return data||[];
 }
 async function saveReview(review){
-  if(!db){const rows=readLocal();rows.unshift({...review,id:crypto.randomUUID(),visible:true,created_at:new Date().toISOString()});writeLocal(rows);return;}
+  if(!db)throw new Error('Supabase no está configurado.');
   const {error}=await db.from('reviews').insert([{...review,visible:true}]);if(error)throw error;
 }
 function bindReviews(){
@@ -115,13 +138,35 @@ function setField(input,valid,errorText){
   if(state){state.textContent=input.value.trim().length===0?'':(valid?'✓ Correcto':('✕ '+errorText));state.className='field-state '+(valid?'success':input.value.trim()?'error':'');}
 }
 function safeText(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function setBudgetStatus(message,state){const status=$('#budgetStatus');status.textContent=message;status.className='form-status '+state;}
+function showBudgetConfirmation(request){
+  const confirmation=document.createElement('div');
+  confirmation.className='budget-confirmation';
+  confirmation.innerHTML='<h2 id="modalTitle">Tu presupuesto está <em>en proceso</em></h2><p class="modal-lead">Recibimos lo que nos contaste:</p>';
+  const details=document.createElement('dl');
+  const rows=[
+    ['Nombre',request.name],['Evento',request.event],['Fecha',request.date||'A definir'],
+    ['Invitados',request.guests||'A definir'],['WhatsApp',request.whatsapp],
+    ['Correo electrónico',request.email],['Detalles',request.details||'Sin detalles adicionales']
+  ];
+  rows.filter(([,value])=>value).forEach(([label,value])=>{
+    const row=document.createElement('div'), term=document.createElement('dt'), description=document.createElement('dd');
+    term.textContent=label;description.textContent=String(value);row.append(term,description);details.append(row);
+  });
+  const thanks=document.createElement('p');
+  thanks.className='form-status success';
+  thanks.textContent='Pronto tendrás tu presupuesto. ¡Gracias!';
+  confirmation.append(details,thanks);
+  modalContent.replaceChildren(confirmation);
+  $('#modalClose').focus();
+}
 function reviewMarkup(r){const date=r.created_at?new Date(r.created_at).toLocaleDateString('es-AR'):'Reciente';return `<article class="review-card"><div class="review-card-top"><b>${safeText(r.name)}</b><span class="review-stars">${'★'.repeat(Number(r.rating)||0)}${'☆'.repeat(5-(Number(r.rating)||0))}</span></div><p>${safeText(r.comment)}</p><time>${date}</time></article>`;}
 async function loadPublicReviews(){
   const list=$('#reviewsList');if(!list)return;list.innerHTML='<p class="admin-note">Cargando comentarios...</p>';
   try{const rows=await fetchReviews(false);const avg=rows.length?rows.reduce((s,r)=>s+Number(r.rating),0)/rows.length:0;
     $('#reviewsSummary').textContent=rows.length?`${avg.toFixed(1)} ★ · ${rows.length} ${rows.length===1?'opinión':'opiniones'}`:'Todavía no hay opiniones publicadas.';
     list.innerHTML=rows.length?rows.map(reviewMarkup).join(''):'<p class="admin-note">Sé la primera persona en compartir tu experiencia con FZ.</p>';
-  }catch(err){list.innerHTML='<p class="form-status error">No se pudieron cargar los comentarios. Revisá la configuración.</p>';console.error(err);}
+  }catch(err){list.innerHTML=`<p class="form-status error">${db?'No se pudieron cargar los comentarios. Revisá la conexión y la configuración de Supabase.':'Los comentarios compartidos estarán disponibles cuando el equipo configure Supabase.'}</p>`;console.error(err);}
 }
 async function loginAdmin(e){
   e.preventDefault();const status=$('#adminStatus');
@@ -138,6 +183,15 @@ async function refreshAdmin(){
   try{const rows=await fetchReviews(true);$('#adminReviews').innerHTML=rows.length?rows.map(r=>`<div class="admin-row"><span>${safeText(r.name)} · ${Number(r.rating)}★ · ${r.visible?'Visible':'Oculta'}</span><button data-review-id="${safeText(r.id)}" data-visible="${!r.visible}">${r.visible?'Ocultar':'Publicar'}</button></div>`).join(''):'<p class="admin-note">Todavía no hay opiniones.</p>';
     $$('#adminReviews button').forEach(btn=>btn.addEventListener('click',()=>setReviewVisibility(btn.dataset.reviewId,btn.dataset.visible==='true')));
   }catch(err){$('#adminReviews').textContent='No se pudieron cargar las opiniones. Verificá las políticas de acceso.';console.error(err);}
+  await loadBudgetRequests();
 }
 async function setReviewVisibility(id,visible){if(!db)return;const {error}=await db.from('reviews').update({visible}).eq('id',id);if(error){$('#adminStatus').textContent='No se pudo actualizar el comentario.';return;}refreshAdmin();}
+async function loadBudgetRequests(){
+  const list=$('#adminBudgetRequests');
+  try{
+    const {data,error}=await db.from('budget_requests').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    list.innerHTML=data.length?data.map(r=>`<article class="budget-request-card"><b>${safeText(r.name)} · ${safeText(r.event)}</b><p>WhatsApp: ${safeText(r.whatsapp||'No indicado')} · Email: ${safeText(r.email||'No indicado')}</p><p>Fecha: ${safeText(r.date||'A definir')} · Invitados: ${safeText(r.guests||'A definir')}</p><p>${safeText(r.details||'Sin detalles adicionales')}</p></article>`).join(''):'<p class="admin-note">Todavía no hay solicitudes.</p>';
+  }catch(err){list.innerHTML='<p class="form-status error">No se pudieron cargar las solicitudes. Verificá la tabla y las políticas de acceso.</p>';console.error(err);}
+}
 async function logoutAdmin(){if(db)await db.auth.signOut();adminUser=null;$('#adminArea').classList.add('hidden');$('#adminLogin').classList.remove('hidden');$('#adminStatus').textContent='Sesión cerrada.';}
