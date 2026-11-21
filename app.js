@@ -3,7 +3,18 @@
 */
 const SUPABASE_URL = 'https://bqqktwikyqychyazzlbs.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_MRQLfMPFCiFK7dZNPaW4IA_kZh4nCwZ';
-const hasSupabaseConfig = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.startsWith('ey');
+function isPublicSupabaseKey(key){
+  if(/^sb_secret_/i.test(key))return false;
+  if(/^sb_publishable_[A-Za-z0-9_-]+$/.test(key))return true;
+  const segments=key.split('.');
+  if(!key.startsWith('eyJ')||segments.length!==3)return false;
+  try{
+    const payload=segments[1].replace(/-/g,'+').replace(/_/g,'/');
+    const paddedPayload=payload.padEnd(Math.ceil(payload.length/4)*4,'=');
+    return JSON.parse(atob(paddedPayload)).role==='anon';
+  }catch{return false;}
+}
+const hasSupabaseConfig = SUPABASE_URL.startsWith('https://') && isPublicSupabaseKey(SUPABASE_ANON_KEY);
 const db = hasSupabaseConfig && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
